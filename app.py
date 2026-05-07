@@ -1,39 +1,63 @@
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title="Calculadora Trading", page_icon="📈")
+st.set_page_config(page_title="Trading Engine", page_icon="⚡")
 
-st.title("📈 Mi Calculadora de Trading")
+# --- 1. LISTENER Y ESTADO ---
+# Inicializamos la lista dinámica si no existe
+if 'orders' not in st.session_state:
+    st.session_state.orders = []
 
-# Entrada del Ticker
-ticker = st.text_input("Escribe el símbolo (ej: AAPL, TSLA, BTC-USD)", "AAPL").upper()
+st.title("⚡ Trading Exposure Engine")
+
+ticker = st.text_input("Símbolo", "BTC-USD").upper()
 
 try:
-    # Obtener precio real
-    data = yf.Ticker(ticker)
-    precio_actual = data.fast_info['last_price']
-    st.metric(label=f"Precio Actual de {ticker}", value=f"${precio_actual:.2f}")
+    precio_actual = yf.Ticker(ticker).fast_info['last_price']
+    st.metric(f"Mercado {ticker}", f"${precio_actual:,.2f}")
 
-    st.write("---")
-    st.subheader("Calculadora de Promedio")
-    
+    st.divider()
+
+    # --- 2. INPUT DE ÓRDENES ---
     col1, col2 = st.columns(2)
     with col1:
-        c1 = st.number_input("Cantidad Compra 1", min_value=0.0, value=0.0)
-        p1 = st.number_input("Precio Compra 1", min_value=0.0, value=0.0)
+        qty = st.number_input("Cantidad (Volumen)", min_value=0.0, step=0.01)
     with col2:
-        c2 = st.number_input("Cantidad Compra 2", min_value=0.0, value=0.0)
-        p2 = st.number_input("Precio Compra 2", min_value=0.0, value=0.0)
+        px = st.number_input("Precio de Ejecución", min_value=0.0, value=precio_actual, step=0.01)
 
-    total_acciones = c1 + c2
-    if total_acciones > 0:
-        inversion = (c1 * p1) + (c2 * p2)
-        promedio = inversion / total_acciones
-        st.success(f"Tu precio promedio es: ${promedio:.2f}")
+    # El "Listener": Al hacer clic, "escucha" y guarda la orden
+    if st.button("Ejecutar Orden 📥"):
+        if qty > 0 and px > 0:
+            st.session_state.orders.append({"qty": qty, "price": px})
+            st.toast(f"Orden ejecutada: {qty} @ {px}")
+        else:
+            st.error("Revisa los valores")
+
+    # --- 3. CÁLCULO DE EXPOSICIÓN ---
+    if st.session_state.orders:
+        st.subheader("📊 Resumen de Exposición")
         
-        # Comparación con mercado
-        diff = ((precio_actual - promedio) / promedio) * 100
-        st.metric("Estado de la inversión", f"{diff:.2f}%", delta=f"{diff:.2f}%")
+        total_qty = sum(order['qty'] for order in st.session_state.orders)
+        # Exposición = Suma de (Precio * Volumen)
+        total_exposure = sum(order['price'] * order['qty'] for order in st.session_state.orders)
+        avg_price = total_exposure / total_qty
 
-except:
+        # Output de resultados
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Volumen Total", f"{total_qty:,.4f}")
+        c2.metric("Exposición Total", f"${total_exposure:,.2f}")
+        c3.metric("Precio Promedio", f"${avg_price:,.2f}", 
+                  delta=f"{(precio_actual - avg_price):,.2f} vs Market")
+
+        # Tabla dinámica de órdenes
+        st.write("### 📜 Historial de Órdenes (Array)")
+        st.table(st.session_state.orders)
+
+        if st.button("Limpiar Historial 🗑️"):
+            st.session_state.orders = []
+            st.rerun()
+
+except Exception as e:
+    st.info("Esperando ticker válido...")
+
     st.warning("Introduce un símbolo válido para empezar.")
