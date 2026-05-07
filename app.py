@@ -1,14 +1,14 @@
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title="Trading Engine", page_icon="⚡")
+st.set_page_config(page_title="Calculadora V2", page_icon="⚡")
 
 # --- 1. LISTENER Y ESTADO ---
 # Inicializamos la lista dinámica si no existe
 if 'orders' not in st.session_state:
     st.session_state.orders = []
 
-st.title("⚡ Trading Exposure Engine")
+st.title("Calcv2")
 
 ticker = st.text_input("Símbolo", "BTC-USD").upper()
 
